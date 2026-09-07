@@ -80,13 +80,13 @@ export async function signup(input: SignupInput) {
 
     await client.query(
       `INSERT INTO audit_logs (tenant_id, actor_user_id, action, target_type, target_id, metadata)
-       VALUES ($1, $2, 'tenant.created', 'tenant', $1, $3)`,
-      [tenantId, userId, JSON.stringify({ tenantSlug })]
+       VALUES ($1, $2, 'tenant.created', 'tenant', $4, $3)`,
+      [tenantId, userId, JSON.stringify({ tenantSlug }), tenantId]
     );
     await client.query(
       `INSERT INTO audit_logs (tenant_id, actor_user_id, action, target_type, target_id)
-       VALUES ($1, $2, 'user.created', 'user', $2)`,
-      [tenantId, userId]
+       VALUES ($1, $2, 'user.created', 'user', $3)`,
+      [tenantId, userId, userId]
     );
 
     const token = signToken({ userId, tenantId, roles: ['ADMIN'] });
@@ -140,8 +140,8 @@ export async function login(input: LoginInput) {
 
     await client.query(
       `INSERT INTO audit_logs (tenant_id, actor_user_id, action, target_type, target_id)
-       VALUES ($1, $2, 'user.login', 'user', $2)`,
-      [tenant.id, user.id]
+       VALUES ($1, $2, 'user.login', 'user', $3)`,
+      [tenant.id, user.id, user.id]
     );
 
     const token = signToken({ userId: user.id, tenantId: tenant.id, roles });
