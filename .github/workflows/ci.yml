@@ -1,0 +1,70 @@
+name: Batch 0 verification
+
+# Runs on GitHub's own cloud runners (real internet access), so npm
+# install and a real Postgres both work here even though they can't be
+# exercised in the sandbox this project was generated in.
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fds_ai_agent
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      # Deliberately create a non-superuser, non-owner role for the app to
+      # connect as. If tests ran as the Postgres superuser instead, RLS
+      # would be silently bypassed and the isolation test would prove
+      # nothing — this step exists so the test is actually meaningful.
+      - name: Create least-privilege app role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d fds_ai_agent -c \
+            "CREATE ROLE fds_app_user WITH LOGIN PASSWORD 'ci_app_pw';"
+          psql -h localhost -U postgres -d fds_ai_agent -c \
+            "GRANT USAGE ON SCHEMA public TO fds_app_user;"
+
+      - name: Apply migrations (as admin, to create schema + RLS policies)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/fds_ai_agent
+        run: npm run migrate
+
+      - name: Grant table privileges to the app role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d fds_ai_agent -c \
+            "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO fds_app_user;"
+
+      - name: Run tenant isolation test (as the least-privilege app role)
+        env:
+          DATABASE_URL: postgres://fds_app_user:ci_app_pw@localhost:5432/fds_ai_agent
+          JWT_SECRET: ci-test-secret-not-for-production
+        run: npm run test:tenant-isolation
