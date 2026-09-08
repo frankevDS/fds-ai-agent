@@ -33,9 +33,27 @@ Batch 0's migration seeds the six Batch-0-relevant permission codes
 their permission grants are created at signup time, not by the
 migration — see `DEFAULT_ROLE_PERMISSIONS` in `auth.service.ts`.
 
-## What is NOT in Batch 0
+## Batch 1 additions
 
-Products, orders, customers, conversations, knowledge, agents, tools,
-automations, events, campaigns, and analytics tables are all
-**NOT IMPLEMENTED** yet — they arrive in Batches 1–11 per the roadmap in
-the architecture plan. Do not assume any of those tables exist.
+- `events` — append-only domain event log, RLS-scoped like every other
+  tenant table. Supports optional idempotent publishing via a
+  `(tenant_id, dedup_key)` unique index (only enforced when `dedup_key`
+  is set).
+- `jobs` — a Postgres-backed job queue (deliberately not Redis, to stay
+  free-tier-friendly per the cost strategy). Workers claim rows with
+  `SELECT ... FOR UPDATE SKIP LOCKED` so multiple worker processes can
+  run concurrently without double-processing a job. Failed jobs get
+  exponential-ish backoff (`attempts * 5s`) and are marked `failed` once
+  `max_attempts` is reached, rather than retrying forever.
+
+Both are polled/written via `withSystemContext()` when the operation is
+genuinely cross-tenant (the job worker scans jobs for ALL tenants) and
+`withTenantContext()` when scoped to one tenant (enqueueing a job,
+publishing an event).
+
+## What is NOT in Batch 1
+
+Products, orders, customers, conversations, knowledge, campaigns,
+analytics, and the `integrations` table (for storing per-tenant
+WooCommerce/Shopify credentials) are still **NOT IMPLEMENTED** — they
+arrive in Batches 2–11.

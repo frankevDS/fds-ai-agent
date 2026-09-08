@@ -58,6 +58,19 @@ curl http://localhost:4000/api/v1/health
 npm run test:tenant-isolation
 ```
 
+## 6b. Verify Batch 1
+
+```bash
+npm run test:model-router   # no DB/network needed
+npm run test:events
+npm run test:jobs
+npm run test:tools
+```
+
+Or, if you'd rather not run any of this locally, push to GitHub — the
+CI workflow (`.github/workflows/ci.yml`) runs all of Batch 0's and
+Batch 1's checks automatically on every push.
+
 ## Alternative: verify via GitHub instead of your own machine
 
 If you don't want to run Node/Postgres locally, push this project to a

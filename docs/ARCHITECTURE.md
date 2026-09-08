@@ -41,6 +41,46 @@ return zero rows from tenant B for the test to pass. This is
 deliberately adversarial: it simulates a developer forgetting a tenant
 filter in application code, which RLS should catch regardless.
 
+## Batch 1 additions
+
+```
+Client
+  -> requireAuth -> requirePermission (unchanged from Batch 0)
+  -> tool.controller -> container.orchestrator.runTool(name, input, ctx)
+       -> ToolRegistry.get(name)
+       -> tool.execute(input, ctx)   [real logic, or a 501 for stubs]
+       -> EventBus.publish('tool.executed', ...)
+```
+
+New layers, each independently testable (see `scripts/test-*.ts`):
+
+- **Tools** (`src/core/tools/`) — see `docs/AI.md`.
+- **Events** (`src/core/events/`) — durable, tenant-isolated, optionally
+  idempotent, with in-process subscribers.
+- **Jobs** (`src/core/jobs/`) — Postgres-backed queue + `SKIP LOCKED`
+  worker, run as a separate process (`npm run worker`), not inside the
+  API server.
+- **Integration adapters** (`src/core/integrations/`) — see
+  `docs/INTEGRATIONS.md`.
+- **`src/core/container.ts`** — the single place all of the above are
+  wired together and built-in tools/job handlers are registered. Later
+  batches add to this file rather than scattering wiring around.
+
+## Known limitations of Batch 1 (by design, not oversight)
+
+- `EventBus.publish()` can fire in-process subscribers for an event
+  whose transaction later rolls back if the caller passed its own
+  `client`. Harmless today (no external side effects exist yet); must
+  be revisited before Batch 7's automation engine wires events to real
+  actions (e.g. via a transactional outbox pattern).
+- The job worker is a single polling loop per process with a fixed
+  2-second idle interval — fine at current scale, not tuned for
+  throughput.
+- No tool-level permission checks yet beyond `requireAuth` — a
+  logged-in user of any role can call any implemented tool via the API.
+  Fine while the only real tools are read-only tenant/user lookups;
+  revisit before any tool can mutate business data.
+
 ## Known limitations of Batch 0 (by design, not oversight)
 
 - No password reset / email verification flow yet.
