@@ -32,7 +32,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Type-check
         run: npx tsc --noEmit
@@ -67,3 +67,24 @@ jobs:
           DATABASE_URL: postgres://fds_app_user:ci_app_pw@localhost:5432/fds_ai_agent
           JWT_SECRET: ci-test-secret-not-for-production
         run: npm run test:tenant-isolation
+
+      - name: Run model router tests (no network/DB required)
+        run: npm run test:model-router
+
+      - name: Run event bus tests
+        env:
+          DATABASE_URL: postgres://fds_app_user:ci_app_pw@localhost:5432/fds_ai_agent
+          JWT_SECRET: ci-test-secret-not-for-production
+        run: npm run test:events
+
+      - name: Run job queue/worker tests
+        env:
+          DATABASE_URL: postgres://fds_app_user:ci_app_pw@localhost:5432/fds_ai_agent
+          JWT_SECRET: ci-test-secret-not-for-production
+        run: npm run test:jobs
+
+      - name: Run tool registry/orchestrator tests
+        env:
+          DATABASE_URL: postgres://fds_app_user:ci_app_pw@localhost:5432/fds_ai_agent
+          JWT_SECRET: ci-test-secret-not-for-production
+        run: npm run test:tools
