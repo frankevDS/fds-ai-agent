@@ -19,13 +19,16 @@ import { DomainEvent, EventHandler } from './event.types';
 export class EventBus {
   private subscribers = new Map<string, EventHandler[]>();
 
-  subscribe<TPayload = Record<string, unknown>>(type: string, handler: EventHandler<TPayload>): void {
+  subscribe<TPayload extends Record<string, unknown> = Record<string, unknown>>(
+    type: string,
+    handler: EventHandler<TPayload>
+  ): void {
     const list = this.subscribers.get(type) ?? [];
     list.push(handler as EventHandler);
     this.subscribers.set(type, list);
   }
 
-  async publish<TPayload = Record<string, unknown>>(
+  async publish<TPayload extends Record<string, unknown> = Record<string, unknown>>(
     event: DomainEvent<TPayload>,
     existingClient?: PoolClient
   ): Promise<{ id: string; createdAt: Date; deduped: boolean }> {
@@ -53,16 +56,18 @@ export class EventBus {
       : await withTenantContext(event.tenantId, insert);
 
     if (!outcome.deduped) {
-      await this.notifySubscribers({ ...event, id: outcome.id, createdAt: outcome.createdAt });
+      await this.notifySubscribers<TPayload>({ ...event, id: outcome.id, createdAt: outcome.createdAt });
     }
     return outcome;
   }
 
-  private async notifySubscribers(event: DomainEvent & { id: string; createdAt: Date }): Promise<void> {
+  private async notifySubscribers<TPayload extends Record<string, unknown> = Record<string, unknown>>(
+    event: DomainEvent<TPayload> & { id: string; createdAt: Date }
+  ): Promise<void> {
     const handlers = this.subscribers.get(event.type) ?? [];
     for (const handler of handlers) {
       try {
-        await handler(event);
+        await (handler as EventHandler<TPayload>)(event);
       } catch (err) {
         // One subscriber failing must never break the publish call or
         // block other subscribers — it's logged, not swallowed silently.
