@@ -1,15 +1,20 @@
 {
   "name": "fds-ai-agent",
   "version": "0.1.0",
-  "description": "FDS AI Agent - multi-tenant AI business operating platform (Batch 0: foundation)",
+  "description": "FDS AI Agent - multi-tenant AI business operating platform (Batch 1: core platform)",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "migrate": "node -r ts-node/register scripts/migrate.ts",
+    "worker": "ts-node scripts/run-worker.ts",
     "seed:test": "ts-node scripts/seed.ts",
-    "test:tenant-isolation": "ts-node scripts/test-tenant-isolation.ts"
+    "test:tenant-isolation": "ts-node scripts/test-tenant-isolation.ts",
+    "test:model-router": "ts-node scripts/test-model-router.ts",
+    "test:events": "ts-node scripts/test-events.ts",
+    "test:jobs": "ts-node scripts/test-jobs.ts",
+    "test:tools": "ts-node scripts/test-tools.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
