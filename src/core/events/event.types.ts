@@ -1,4 +1,4 @@
-export interface DomainEvent<TPayload = Record<string, unknown>> {
+export interface DomainEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   tenantId: string;
   type: string;
   payload: TPayload;
@@ -6,6 +6,6 @@ export interface DomainEvent<TPayload = Record<string, unknown>> {
   dedupKey?: string;
 }
 
-export type EventHandler<TPayload = Record<string, unknown>> = (
+export type EventHandler<TPayload extends Record<string, unknown> = Record<string, unknown>> = (
   event: DomainEvent<TPayload> & { id: string; createdAt: Date }
 ) => Promise<void>;
