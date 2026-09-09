@@ -7,7 +7,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { pool } from '../src/config/db';
+import { pool, withTenantContext } from '../src/config/db';
 import { EventBus } from '../src/core/events/eventBus';
 import { signup } from '../src/modules/auth/auth.service';
 
@@ -57,8 +57,17 @@ async function main() {
     'Subscriber received the original (non-deduped) payload'
   );
 
-  const rows = await pool.query('SELECT count(*)::int AS n FROM events WHERE tenant_id = $1', [tenant.tenantId]);
-  check(rows.rows[0].n === 1, `Exactly one event row persisted for this tenant (got ${rows.rows[0].n})`);
+  // RLS is enforced on `events`, so a raw pool.query() here (no tenant
+  // context set) would correctly see zero rows regardless of what was
+  // inserted — this must go through withTenantContext like any other
+  // tenant-scoped read, exactly as production code is required to.
+  const n = await withTenantContext(tenant.tenantId, async (client) => {
+    const result = await client.query('SELECT count(*)::int AS n FROM events WHERE tenant_id = $1', [
+      tenant.tenantId,
+    ]);
+    return result.rows[0].n as number;
+  });
+  check(n === 1, `Exactly one event row persisted for this tenant (got ${n})`);
 
   await pool.end();
   if (failures > 0) {
