@@ -8,7 +8,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { pool } from '../src/config/db';
+import { pool, withTenantContext } from '../src/config/db';
 import { container } from '../src/core/container';
 import { signup } from '../src/modules/auth/auth.service';
 
@@ -57,11 +57,16 @@ async function main() {
   }
   check(searchThrew, "search_products (real tool, no adapter connected) surfaces the adapter's 501 rather than fake products");
 
-  const events = await pool.query(
-    `SELECT count(*)::int AS n FROM events WHERE tenant_id = $1 AND type = 'tool.executed'`,
-    [tenant.tenantId]
-  );
-  check(events.rows[0].n >= 3, `At least 3 'tool.executed' events were logged (got ${events.rows[0].n})`);
+  // RLS is enforced on `events` — a raw pool.query() here would see zero
+  // rows regardless of what was logged, same lesson as test-events.ts.
+  const n = await withTenantContext(tenant.tenantId, async (client) => {
+    const result = await client.query(
+      `SELECT count(*)::int AS n FROM events WHERE tenant_id = $1 AND type = 'tool.executed'`,
+      [tenant.tenantId]
+    );
+    return result.rows[0].n as number;
+  });
+  check(n >= 3, `At least 3 'tool.executed' events were logged (got ${n})`);
 
   await pool.end();
   if (failures > 0) {
