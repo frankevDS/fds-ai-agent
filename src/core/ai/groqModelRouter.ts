@@ -26,7 +26,7 @@ export type ModelFetcher = () => Promise<GroqModel[]>;
 export const DEFAULT_PREFERENCE_PATTERNS: RegExp[] = [
   /^llama-3\.3-70b/i,
   /^llama-3\.1-70b/i,
-  /^qwen3(\.\d+)?-(3[0-9]|[4-9][0-9])b/i, // qwen3.x in the 30B+ range
+  /^qwen3(\.\d+)?-\d{2,3}b/i,     // qwen3.x with any double/triple-digit param count (e.g. 27b, 72b)
   /^mixtral-8x7b/i,
   /^llama-3\.1-8b/i,
   /^gemma2-9b/i,
